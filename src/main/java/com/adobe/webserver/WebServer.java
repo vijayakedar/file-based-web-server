@@ -5,7 +5,6 @@ import java.io.FilenameFilter;
 import java.io.IOException;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.URLDecoder;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -25,8 +24,11 @@ import org.apache.http.message.BasicStatusLine;
 public class WebServer {
 
 	public static final int DEFAULT_PORT = 8181;
-	public static final String TMP_DIR = System.getProperty("java.io.tmpdir");
+	public static final String TMP_DIR =  "src/main/resources/root"; // System.getProperty("java.io.tmpdir");
 	public static final int NO_OF_THREADS = 5;
+	
+	private ExecutorService service;
+	private ServerSocket serverSocket;
 	
 	public void start(int port, File root, int noOfThreads){
 		
@@ -41,8 +43,7 @@ public class WebServer {
 			noOfThreads = NO_OF_THREADS;
 		}
 		
-		ExecutorService service = Executors.newFixedThreadPool(noOfThreads);
-		ServerSocket serverSocket = null;
+		service = Executors.newFixedThreadPool(noOfThreads);
 		
 		try {
 			serverSocket = new ServerSocket(port);
@@ -66,6 +67,19 @@ public class WebServer {
 		}
 	}
 	
+	public void stop() {
+		if (service != null && !service.isTerminated()) {
+			service.shutdown();
+		}
+		
+		if (serverSocket != null) {
+			try {
+				serverSocket.close();
+			} catch (IOException e) {
+				e.printStackTrace();
+			}
+		}
+	}
 	
 	static class Worker implements Runnable{
         
@@ -93,8 +107,6 @@ public class WebServer {
 						response = buildResponse(protocolVersion, HttpStatus.SC_OK,
 										new StringEntity("Hello from Webserver!"));
 					} else {
-						// TODO: File file = new File(root, URLDecoder.decode(uri, "UTF-8"));
-						
 						File[] files = root.listFiles(new FilenameFilter() {
 							
 							public boolean accept(File dir, String name) {
@@ -115,9 +127,6 @@ public class WebServer {
 				connection.sendResponseHeader(response);
 				connection.sendResponseEntity(response);
 				connection.close();
-				/*socket.getOutputStream().write("hello world".getBytes());
-				socket.getOutputStream().flush();
-				socket.close();*/
 			} catch (IOException e) {
 				e.printStackTrace();
 			} catch (HttpException e) {
